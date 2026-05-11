@@ -1,0 +1,174 @@
+@import url("https://api.fontshare.com/v2/css?f[]=satoshi@400,500,600,700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================================
+   Base Layout
+========================================= */
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+
+  background-color: #050505;
+  color: #ededed;
+
+  font-family: "Manrope", sans-serif;
+
+  overflow: hidden;
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* =========================================
+   Typography
+========================================= */
+
+.font-display {
+  font-family: "Satoshi", sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.font-mono,
+code {
+  font-family: "JetBrains Mono", monospace;
+}
+
+/* =========================================
+   Global Styling
+========================================= */
+
+* {
+  box-sizing: border-box;
+  border-color: #1f1f22;
+}
+
+body {
+  background:
+    radial-gradient(
+      circle at top,
+      rgba(0, 229, 255, 0.08),
+      transparent 28%
+    ),
+    #050505;
+
+  color: #ededed;
+}
+
+/* =========================================
+   Scrollbar
+========================================= */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1f1f22;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #2a2a2e;
+}
+
+/* =========================================
+   Selection
+========================================= */
+
+::selection {
+  background: rgba(0, 229, 255, 0.25);
+  color: white;
+}
+
+/* =========================================
+   Animations
+========================================= */
+
+@keyframes trace {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+.tracing-beam {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(0, 229, 255, 0.6) 50%,
+    transparent 100%
+  );
+
+  background-size: 200% 100%;
+
+  animation: trace 2.4s linear infinite;
+}
+
+@keyframes pulseDot {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.pulse-dot {
+  animation: pulseDot 2s ease-in-out infinite;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-up {
+  animation: fadeUp 0.4s ease-out both;
+}
+
+/* =========================================
+   Utility Background
+========================================= */
+
+.subtle-grid {
+  background-image:
+    linear-gradient(
+      rgba(255, 255, 255, 0.02) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.02) 1px,
+      transparent 1px
+    );
+
+  background-size: 56px 56px;
+}

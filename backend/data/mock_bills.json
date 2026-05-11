@@ -1,0 +1,9 @@
+[
+  {
+    "customer_id": "CUST001",
+    "name": "John Doe",
+    "last_month_bill": 799,
+    "current_bill": 2140,
+    "reason": "International roaming charges"
+  }
+]

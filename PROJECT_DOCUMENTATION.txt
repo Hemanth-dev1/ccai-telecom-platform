@@ -1,0 +1,362 @@
+PROJECT DOCUMENTATION
+=====================
+
+1. Project Overview
+-------------------
+This repository implements an enterprise-grade telecom customer support orchestration platform combining Conversational AI, orchestration intelligence, telemetry, escalation workflows, and analytics. The system is built on:
+- Dialogflow CX for intent and flow detection
+- Gemini for orchestration reasoning, response generation, and summarization
+- FastAPI backend for service orchestration and API exposure
+- React + Vite frontend for agent workspace and analytics dashboards
+- ChromaDB for retrieval-augmented generation (RAG)
+- SQLite for prototype persistence of conversations and telemetry events
+
+The project is designed to support telecom conversational operations, not merely chatbot interactions. It features human handoff readiness, escalation detection, and operational telemetry.
+
+2. System Architecture
+----------------------
+The architecture is a hybrid orchestration stack with separate frontend, backend, AI, RAG, and telemetry components.
+
+Frontend:
+- React UI with workspace, analytics, and orchestration trace interfaces
+- Tailwind styling and Recharts visualizations
+- `useChat` hook for local message management and orchestration state
+
+Backend:
+- FastAPI routes for chat, webhook, analytics, events, and agent desk
+- SQLite persistence via SQLAlchemy
+- Dialogflow CX integration for intent/flow detection
+- Gemini integration for orchestration and response generation
+- ChromaDB retrieval for domain context
+
+Data flow:
+- User sends message -> `/chat`
+- `Dialogflow CX` extracts intent, flow, confidence
+- `ChromaDB` retrieves telecom knowledge context
+- `Gemini` generates orchestration response and operational metadata
+- Conversation payloads stored, telemetry events recorded
+- Analytics and escalation queue derived from persisted data
+
+3. Frontend Architecture
+------------------------
+Purpose: provide a live operational console for AI orchestration and analytics.
+
+Primary files and responsibilities:
+- `src/App.jsx`: Router entrypoint with `/workspace` and `/analytics`
+- `src/pages/Workspace.jsx`: main conversation workspace with chat and orchestration panels
+- `src/pages/Analytics.jsx`: dashboard page for KPI visualizations and charts
+- `src/components/ChatStream.jsx`: message list, composer, and metadata render
+- `src/components/ContextPanel.jsx`: live orchestration status and intelligence summary
+- `src/components/OrchestrationDrawer.jsx`: trace-level execution details and latency metrics
+- `src/components/AnalyticsCards.jsx`: charts and KPI cards for operational analytics
+- `src/hooks/useChat.js`: client state management for messages, orchestration, and API interaction
+- `src/api/client.js`: backend chat request wrapper
+- `src/services/analyticsApi.js`: analytics API client
+
+Component interactions and execution flow:
+- `Workspace` renders the chat area and context panels, using `useChat`
+- `useChat` issues `/chat` requests and updates local state with user and AI messages
+- `ChatStream` shows messages plus meta labels for sentiment, urgency, risk, escalation, and customer state
+- `ContextPanel` surfaces intent, flow, escalation status, and operational indicators
+- `Analytics` fetches backend data and renders `VolumeChart`, `EscalationsChart`, and distribution charts
+
+Design decisions:
+- Hybrid live UI/ mock data structure with static conversation metadata in `mockData`
+- Recharts for analytics visualizations
+- Local state management for chat messages, with backend-driven orchestration updates
+
+4. Backend Architecture
+-----------------------
+Purpose: orchestrate AI, persist state, and expose analytics and escalation services.
+
+Key backend components:
+- `backend/main.py`: bootstraps FastAPI, enables CORS, mounts routers
+- `backend/database/db.py`: SQLAlchemy engine, session maker, declarative base
+- `backend/database/conversation_model.py`: conversation table
+- `backend/database/event_model.py`: event table
+- `backend/routers/chat.py`: chat orchestration endpoint
+- `backend/routers/webhook.py`: Dialogflow webhook flows
+- `backend/routers/analytics.py`: analytics dashboard endpoint
+- `backend/routers/events.py`: session telemetry retrieval
+- `backend/routers/agent_desk.py`: escalation queue endpoint
+- `backend/services/*.py`: service modules implementing AI, storage, analytics, and telemetry
+- `backend/rag/retriever.py`: RAG retrieval layer
+
+Design decisions:
+- SQLite prototype persistence for conversations and events
+- event telemetry stored as JSON strings for prototype observability
+- Backend uses `json.dumps()` to serialize event payloads for SQLite
+- Analysts and developers can query analytics from both conversation and event tables
+
+5. API Design
+-------------
+The platform exposes these primary API contracts:
+
+POST `/chat`
+- Input: `message`, `session_id`
+- Output: orchestration response plus metadata
+- Response contains: `reply`, `intent`, `confidence`, `flow`, `sentiment`, `urgency`, `risk_level`, `requires_escalation`, `customer_state`, `business_impact`, `trace`
+
+POST `/webhook/dialogflow`
+- Input: Dialogflow webhook payload
+- Tags supported: `billing_support`, `network_support`, `recharge_support`, `escalation_support`
+- Output: Dialogflow fulfillment response
+
+GET `/analytics/`
+- Returns analytics contract with stable data keys:
+  - `total_conversations`, `total_messages`, `top_intents`, `flow_distribution`, `sentiment_distribution`, `risk_distribution`, `escalations`, `customer_states`, `business_impact`, `message_timeline`, `escalation_timeline`, `volume`
+
+GET `/agent-desk/escalations`
+- Returns escalation queue with user messages requiring human review
+
+GET `/events/{session_id}`
+- Returns event history for session with `event_data` deserialized to JSON
+
+6. Database Schema
+------------------
+Conversations table:
+- `id`: PK
+- `session_id`: session correlation
+- `role`: user/assistant
+- `message`: text payload
+- `intent`: Dialogflow intent
+- `flow`: Dialogflow flow name
+- `sentiment`: sentiment label
+- `urgency`: urgency label
+- `risk_level`: risk classification
+- `created_at`: timestamp
+
+Events table:
+- `id`: PK
+- `session_id`: correlation
+- `event_type`: e.g. `intent_detected`, `sentiment_detected`, `rag_retrieval`, `response_generated`, `memory_loaded`
+- `source`: origin system
+- `event_data`: serialized JSON text
+- `created_at`: timestamp
+
+7. Dialogflow CX Flow Design
+---------------------------
+Dialogflow CX is the first inference layer for intent and flow detection.
+
+Integration details:
+- `backend/services/dialogflow_service.py`
+- Uses `google.cloud.dialogflowcx_v3`
+- Builds `session_path` from env-configured `PROJECT_ID`, `LOCATION_ID`, `AGENT_ID`, and `session_id`
+- Returns `intent`, `confidence`, `flow`
+
+Webhook flow:
+- `backend/routers/webhook.py` reads `fulfillmentInfo.tag`
+- Tag-based processing enables specialized exchanges for billing, network, recharge, escalation
+- `execute_rag_support_flow()` is the shared backend flow for Dialogflow-tagged support requests
+
+8. Gemini Integration
+---------------------
+Gemini is the central LLM for orchestration and generation.
+
+Implementation:
+- `backend/services/gemini_client.py`: configures `google.generativeai` with `GEMINI_API_KEY`
+- `backend/services/gemini_service.py`: contains orchestration functions
+
+Capabilities:
+- `generate_billing_response()` for billing explanations
+- `generate_ticket_summary()` for escalation ticket summaries
+- `generate_rag_response()` for RAG-augmented support response generation
+- `generate_orchestration_response()` for main telecom orchestration reasoning
+
+Design notes:
+- Gemini is used for both classification and response generation in the same service
+- The `generate_orchestration_response()` prompt instructs Gemini to emit only valid JSON mapping to operational state
+- Response parsing is brittle but workable for prototype stage
+
+9. Sentiment Analysis Engine
+----------------------------
+Purpose: classify customer state and escalation risk.
+
+Implementation:
+- `backend/services/sentiment_service.py`
+- Uses Gemini prompt to return JSON fields:
+  - `sentiment`, `urgency`, `risk_level`, `requires_escalation`, `customer_state`, `business_impact`
+
+Observations:
+- This service is architecturally decoupled from the chat orchestration service
+- The actual chat endpoint currently derives that same metadata from Gemini orchestration
+
+10. Escalation Intelligence
+---------------------------
+This system flags urgent conversations for human review.
+
+Decision logic:
+- Escalation if sentiment is `angry`, urgency is `high`, or `risk_level` is `high`
+- Deterministic overrides for specific high-risk intents
+- Escalation queue is derived from the conversation record stream
+
+Escalation queue fields:
+- `session_id`, `customer`, `intent`, `sentiment`, `urgency`, `risk_level`, `confidence`, `wait_time`, `message`
+
+11. Event Telemetry System
+--------------------------
+Purpose: capture execution signals and make them queryable.
+
+Implementation:
+- `backend/services/event_service.py` writes events to SQLite
+- `event_data` is stored as JSON string
+- `GET /events/{session_id}` deserializes event payloads for inspection
+
+Event types captured:
+- intent detection
+- sentiment/risk assessment
+- RAG retrieval
+- response generation
+- memory loaded
+
+12. Analytics Pipeline
+----------------------
+Purpose: convert captured data into operational intelligence.
+
+Implementation:
+- `backend/services/analytics_service.py`
+- Aggregates data from conversations and events
+
+Measures produced:
+- `top_intents`
+- `flow_distribution`
+- `sentiment_distribution`
+- `risk_distribution`
+- `customer_states`
+- `business_impact`
+- `message_timeline`
+- `escalation_timeline`
+- `volume`
+
+Important note:
+- `volume` and `escalation_timeline` are currently generated with synthetic/hybrid telemetry logic to ensure visual dashboard continuity
+- This is a prototype tradeoff to avoid empty charts while real telemetry is still limited
+
+13. Agent Desk Workflow
+-----------------------
+Purpose: present escalations in operational queue format.
+
+Frontend:
+- `frontend/src/pages/AgentDesk.jsx`
+- Polls `/agent-desk/escalations` every 5 seconds
+- Filters by risk level and sorts by priority
+- Displays simulated KPI metrics clearly labeled as `(sim)`
+
+Backend:
+- `backend/routers/agent_desk.py`
+- Returns user records needing escalation
+
+14. Orchestration Lifecycle
+---------------------------
+The orchestration lifecycle is the core AI operations flow:
+1. receive user input
+2. detect intent via Dialogflow CX
+3. load conversation history
+4. retrieve domain context via RAG
+5. generate orchestration response via Gemini
+6. persist conversation history
+7. emit telemetry events
+8. return actionable response and trace metadata
+
+15. Conversation Lifecycle
+--------------------------
+Conversations are persisted turn-by-turn in SQLite.
+
+Backend support:
+- `save_message()` stores user and assistant turns
+- `get_session_history()` retrieves recent session messages
+
+Frontend:
+- `useChat` keeps local message state
+- Responses are enriched with orchestration metadata but not backed by a full session fetch mechanism
+
+16. RAG Integration
+-------------------
+Purpose: ground AI responses with telecom domain knowledge.
+
+Implementation:
+- `backend/rag/retriever.py` uses ChromaDB persistent collection
+- `retrieve_context(query)` returns the strongest matching document
+- Knowledge base texts are stored under `backend/rag/knowledge_base/`
+
+17. Observability Design
+------------------------
+The system captures observability at multiple levels:
+- trace metadata embedded in response payloads
+- serialized event records for each request stage
+- analytics endpoints for operational dashboards
+- agent drawer showing latency and reasoning signals
+
+18. Deployment Architecture
+---------------------------
+Current deployment is local development only:
+- backend runs via Uvicorn
+- frontend runs via Vite
+
+Enterprise deployment should move to:
+- containerized backend services
+- PostgreSQL / JSONB storage
+- managed LLM services and secure API key vault
+- secure CORS and auth layers
+
+19. Environment Variables
+-------------------------
+Backend .env configuration:
+- `GEMINI_API_KEY`
+- `PROJECT_ID`
+- `AGENT_ID`
+- `LOCATION_ID`
+
+Frontend uses:
+- `VITE_API_BASE`
+
+20. Future Scalability
+----------------------
+Roadmap items:
+- migrate SQLite to PostgreSQL / vector DB
+- separate telemetry ingestion from request path
+- adopt JSONB and event streaming
+- build robust agent handoff and ticket integration
+- add auth and RBAC
+
+21. Current Limitations
+-----------------------
+Notable limitations:
+- SQLite prototype storage
+- no auth or secure access controls
+- synthetic analytics data in charts
+- incomplete frontend routing for `/chat`
+- no production-grade tracing or logging stack
+
+22. Recommended Improvements
+---------------------------
+Recommended next steps:
+- secure API and CORS
+- migrate to PostgreSQL + JSONB
+- build agent desk state machine
+- fully wire session history to workspace UI
+- add real escalation tickets and ticket tracking
+- add observability with tracing and metrics
+
+23. Security Considerations
+--------------------------
+Current risks:
+- open CORS
+- no auth
+- secrets in `.env`
+- frontend/backend exposed without verification
+
+Enterprise hardening:
+- auth, audit, rate limiting
+- secret vault for API keys
+- secure Dialogflow and Gemini access
+
+24. Enterprise Expansion Opportunities
+-----------------------------------
+Strategic expansion:
+- multi-channel orchestration (voice, SMS, WhatsApp)
+- carrier-grade escalation policies
+- compliance and legal escalation tracking
+- predictive analytics for churn and fraud
+- distributed telemetry and observability
+- microservice decomposition for large-scale telecom operations
