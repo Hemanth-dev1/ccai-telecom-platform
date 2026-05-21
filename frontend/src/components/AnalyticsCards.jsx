@@ -684,130 +684,131 @@ export function EscalationsChart({
 }
 
 
-// // ======================================
-// // CSAT
-// // ======================================
+// ======================================
+// MESSAGE TIMELINE
+// ======================================
 
-// export function CsatChart({
-//   data
-// }) {
+export function MessageTimelineChart({ data }) {
+  return (
+    <div
+      data-testid="chart-messages"
+      className="
+        lg:col-span-8
+        border
+        border-[#1F1F22]
+        rounded-lg
+        bg-[#0A0A0B]
+        p-5
+      "
+    >
+      <div className="mb-4">
+        <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#5C5F66]">
+          Message Timeline
+        </div>
+        <div className="text-[14px] text-[#ededed] mt-1">
+          Messages per hour · 24h
+        </div>
+      </div>
+      <div className="h-[220px]">
+        <ResponsiveContainer>
+          <BarChart data={data}>
+            <CartesianGrid stroke="#1F1F22" vertical={false} />
+            <XAxis dataKey="hour" axisLine={false} tickLine={false} tick={AXIS_TICK} />
+            <YAxis axisLine={false} tickLine={false} tick={AXIS_TICK} width={32} />
+            <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "#0F0F11" }} />
+            <Bar dataKey="messages" fill="#00E5FF" opacity={0.7} radius={[3, 3, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
 
-//   return (
+// ======================================
+// DONUT CHART (used for Business Impact, etc.)
+// ======================================
 
-//     <div
-//       data-testid="chart-csat"
+export function DistributionDonutChart({ title, subtitle, data, colorMap }) {
+  const total = data.reduce((sum, d) => sum + d.value, 0) || 1;
+  return (
+    <div
+      className="
+        lg:col-span-4
+        border
+        border-[#1F1F22]
+        rounded-lg
+        bg-[#0A0A0B]
+        p-5
+      "
+    >
+      <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#5C5F66]">
+        {title}
+      </div>
+      <div className="text-[14px] text-[#ededed] mt-1 mb-5">
+        {subtitle}
+      </div>
+      <div className="space-y-3">
+        {data.map((item) => {
+          const pct = ((item.value / total) * 100).toFixed(1);
+          const color = colorMap?.[item.name] || "#00E5FF";
+          return (
+            <div key={item.name} className="flex items-center gap-3">
+              <span className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+              <span className="text-[12px] text-[#ededed] w-24 capitalize flex-shrink-0">
+                {item.name}
+              </span>
+              <div className="flex-1 h-1.5 bg-[#1F1F22] rounded-full overflow-hidden">
+                <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
+              </div>
+              <span className="font-mono text-[11px] text-[#8A8F98] w-14 text-right">
+                {item.value} · {pct}%
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
-//       className="
-//         lg:col-span-6
-//         border
-//         border-[#1F1F22]
-//         rounded-lg
-//         bg-[#0A0A0B]
-//         p-5
-//       "
-//     >
+// ======================================
+// FLOW DISTRIBUTION
+// ======================================
 
-//       <div className="
-//         flex
-//         items-center
-//         justify-between
-//         mb-4
-//       ">
-
-//         <div>
-
-//           <div className="
-//             font-mono
-//             text-[10px]
-//             uppercase
-//             tracking-[0.2em]
-//             text-[#5C5F66]
-//           ">
-
-//             CSAT Trend
-
-//           </div>
-
-//           <div className="
-//             text-[14px]
-//             text-[#ededed]
-//             mt-1
-//           ">
-
-//             Out of 5 · 7d
-
-//           </div>
-
-//         </div>
-
-//         <span className="
-//           font-mono
-//           text-[11px]
-//           text-[#2DD4BF]
-//         ">
-
-//           +0.11 wow
-
-//         </span>
-
-//       </div>
-
-//       <div className="h-[220px]">
-
-//         <ResponsiveContainer>
-
-//           <LineChart data={data}>
-
-//             <CartesianGrid
-//               stroke="#1F1F22"
-//               vertical={false}
-//             />
-
-//             <XAxis
-//               dataKey="day"
-//               axisLine={false}
-//               tickLine={false}
-//               tick={AXIS_TICK}
-//             />
-
-//             <YAxis
-//               domain={[4.4, 4.9]}
-//               axisLine={false}
-//               tickLine={false}
-//               tick={AXIS_TICK}
-//               width={32}
-//             />
-
-//             <Tooltip
-//               contentStyle={tooltipStyle}
-//               cursor={{
-//                 stroke: "#2a2a2e"
-//               }}
-//             />
-
-//             <Line
-//               type="monotone"
-//               dataKey="score"
-//               stroke="#00E5FF"
-//               strokeWidth={1.5}
-//               dot={{
-//                 r: 2.5,
-//                 fill: "#00E5FF",
-//                 strokeWidth: 0,
-//               }}
-//               activeDot={{
-//                 r: 4,
-//                 fill: "#00E5FF",
-//                 strokeWidth: 0,
-//               }}
-//             />
-
-//           </LineChart>
-
-//         </ResponsiveContainer>
-
-//       </div>
-
-//     </div>
-//   );
-// }
+export function FlowChart({ data }) {
+  const max = Math.max(...(data?.map((d) => d.value) || [1]), 1);
+  return (
+    <div
+      className="
+        lg:col-span-4
+        border
+        border-[#1F1F22]
+        rounded-lg
+        bg-[#0A0A0B]
+        p-5
+      "
+    >
+      <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#5C5F66]">
+        Flow Distribution
+      </div>
+      <div className="text-[14px] text-[#ededed] mt-1 mb-4">
+        Dialogflow CX flows
+      </div>
+      <div className="space-y-2.5">
+        {data.map((i) => (
+          <div key={i.name} className="flex items-center gap-3">
+            <span className="text-[12px] text-[#ededed] w-24 truncate">
+              {i.name}
+            </span>
+            <div className="flex-1 h-1.5 bg-[#1F1F22] rounded-full overflow-hidden">
+              <div className="h-full bg-[#A78BFA]/80" style={{ width: `${(i.value / max) * 100}%` }} />
+            </div>
+            <span className="font-mono text-[11px] text-[#8A8F98] w-8 text-right">
+              {i.value}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

@@ -13,6 +13,7 @@ import {
 import Workspace from "./pages/Workspace";
 
 import Analytics from "./pages/Analytics";
+import AgentDesk from "./pages/AgentDesk";
 
 import TopNav from "./components/TopNav";
 
@@ -50,6 +51,11 @@ function App() {
           <Route
             path="/analytics"
             element={<Analytics />}
+          />
+
+          <Route
+            path="/agent-desk"
+            element={<AgentDesk />}
           />
 
         </Routes>

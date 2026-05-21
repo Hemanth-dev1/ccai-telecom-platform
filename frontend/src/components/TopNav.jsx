@@ -113,9 +113,9 @@ export default function TopNav() {
           </Link>
 
           <Link
-            to="/chat"
+            to="/agent-desk"
             className={navClass(
-              "/chat"
+              "/agent-desk"
             )}
           >
 

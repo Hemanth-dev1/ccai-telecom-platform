@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useRef } from "react";
 
 import { sendMessage } from "../api/client";
 
@@ -11,6 +10,11 @@ export function useChat() {
 
   const [loading, setLoading] =
     useState(false);
+
+  const [pipelineStep, setPipelineStep] =
+    useState(0);
+
+  const pipelineTimersRef = useRef([]);
 
   // =====================================
   // ORCHESTRATION STATE
@@ -39,6 +43,25 @@ export function useChat() {
 
       trace: {},
     });
+
+  // =====================================
+  // PIPELINE STEP TIMER
+  // =====================================
+
+  const simulatePipeline = () => {
+    // Clear any previous pipeline timers
+    pipelineTimersRef.current.forEach(clearTimeout);
+    pipelineTimersRef.current = [];
+
+    setPipelineStep(0);
+
+    const intervals = [3000, 6000, 9000]; // Advance at 3s, 6s, 9s
+
+    intervals.forEach((ms, i) => {
+      const timerId = setTimeout(() => setPipelineStep(i + 1), ms);
+      pipelineTimersRef.current.push(timerId);
+    });
+  };
 
   // =====================================
   // SEND MESSAGE
@@ -81,6 +104,7 @@ export function useChat() {
     ]);
 
     setLoading(true);
+    simulatePipeline();
 
     try {
 
@@ -222,7 +246,12 @@ export function useChat() {
 
     } finally {
 
+      // Clear pipeline timers when response arrives
+      pipelineTimersRef.current.forEach(clearTimeout);
+      pipelineTimersRef.current = [];
+
       setLoading(false);
+      setPipelineStep(0);
     }
   };
 
@@ -234,7 +263,8 @@ export function useChat() {
 
     orchestration,
 
+    pipelineStep,
+
     sendChatMessage,
   };
 }
-

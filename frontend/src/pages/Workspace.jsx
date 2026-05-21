@@ -23,6 +23,7 @@ export default function Workspace() {
     messages,
     loading,
     orchestration,
+    pipelineStep,
     sendChatMessage,
   } = useChat();
 
@@ -116,6 +117,7 @@ export default function Workspace() {
             conversation={conversation}
             messages={messages}
             loading={loading}
+            pipelineStep={pipelineStep}
             sendChatMessage={sendChatMessage}
           />
 
