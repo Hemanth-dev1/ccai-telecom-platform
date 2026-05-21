@@ -30,30 +30,57 @@ def save_message(
 
     db: Session = SessionLocal()
 
-    conversation = Conversation(
+    try:
+        conversation = Conversation(
 
-        session_id=session_id,
+            session_id=session_id,
 
-        role=role,
+            role=role,
 
-        message=message,
+            message=message,
 
-        intent=intent,
+            intent=intent,
 
-        flow=flow,
+            flow=flow,
 
-        sentiment=sentiment,
+            sentiment=sentiment,
 
-        urgency=urgency,
+            urgency=urgency,
 
-        risk_level=risk_level,
-    )
+            risk_level=risk_level,
+        )
 
-    db.add(conversation)
+        db.add(conversation)
 
-    db.commit()
+        db.commit()
+    finally:
+        db.close()
 
-    db.close()
+
+# ==========================================
+# GET SESSION HISTORY
+# ==========================================
+
+
+# ==========================================
+# SAVE MESSAGES BATCH
+# ==========================================
+
+def save_messages_batch(
+    messages,
+):
+    """Save multiple messages in a single DB session.
+    messages: list of dicts with keys:
+      session_id, role, message, intent, flow, sentiment, urgency, risk_level
+    """
+    db: Session = SessionLocal()
+    try:
+        for msg in messages:
+            conversation = Conversation(**msg)
+            db.add(conversation)
+        db.commit()
+    finally:
+        db.close()
 
 
 # ==========================================
@@ -68,20 +95,21 @@ def get_session_history(
 
     db: Session = SessionLocal()
 
-    messages = (
-        db.query(Conversation)
-        .filter(
-            Conversation.session_id
-            == session_id
+    try:
+        messages = (
+            db.query(Conversation)
+            .filter(
+                Conversation.session_id
+                == session_id
+            )
+            .order_by(
+                Conversation.created_at.desc()
+            )
+            .limit(limit)
+            .all()
         )
-        .order_by(
-            Conversation.created_at.desc()
-        )
-        .limit(limit)
-        .all()
-    )
-
-    db.close()
+    finally:
+        db.close()
 
     messages.reverse()
 

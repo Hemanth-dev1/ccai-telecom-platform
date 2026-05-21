@@ -2,7 +2,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-DATABASE_URL = "sqlite:///./telecom_ai.db"
+import os
+
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "sqlite:///./data/telecom_ai.db"
+)
 print(f"\nDATABASE URL: {DATABASE_URL}\n")
 
 engine = create_engine(

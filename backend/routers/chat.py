@@ -1,4 +1,5 @@
 
+import asyncio
 import time
 
 from fastapi import APIRouter
@@ -9,12 +10,12 @@ from services.dialogflow_service import (
 )
 
 from services.memory_service import (
-    save_message,
+    save_messages_batch,
     get_session_history
 )
 
 from services.event_service import (
-    create_event
+    create_events_batch
 )
 
 from rag.retriever import (
@@ -67,77 +68,54 @@ async def chat(
     )
 
     # =====================================
-    # DIALOGFLOW CX
+    # PARALLEL: Dialogflow + Memory + RAG
     # =====================================
 
-    intent_data = detect_intent(
+    parallel_start = time.time()
 
+    async def _timed_rag():
+        r_start = time.time()
+        result = await asyncio.to_thread(
+            retrieve_context, user_message
+        )
+        return result, round(
+            (time.time() - r_start) * 1000
+        )
+
+    intent_task = asyncio.to_thread(
+        detect_intent,
         session_id=session_id,
-
         user_message=user_message,
+    )
+    history_task = asyncio.to_thread(
+        get_session_history, session_id
+    )
+    rag_task = _timed_rag()
+
+    intent_data, history, (context, rag_latency) = (
+        await asyncio.gather(
+            intent_task, history_task, rag_task
+        )
+    )
+
+    parallel_latency = round(
+        (time.time() - parallel_start) * 1000
     )
 
     intent = intent_data["intent"]
-
-    confidence = (
-        intent_data["confidence"]
-    )
-
+    confidence = intent_data["confidence"]
     flow = intent_data["flow"]
 
     print(
-        "\n========== INTENT =========="
+        "\n========== PARALLEL =========="
     )
-
-    print(f"INTENT: {intent}")
-
-    print(
-        f"CONFIDENCE: {confidence}"
-    )
-
+    print(f"INTENT: {intent} ({confidence:.2f})")
     print(f"FLOW: {flow}")
-
+    print(f"HISTORY: {len(history)} messages")
+    print(f"PARALLEL LATENCY: {parallel_latency} ms")
+    print(f"RAG LATENCY: {rag_latency} ms")
     print(
-        "============================\n"
-    )
-
-    # =====================================
-    # MEMORY
-    # =====================================
-
-    history = get_session_history(
-        session_id
-    )
-
-    print(
-        f"\nHISTORY: {len(history)} messages\n"
-    )
-
-    # =====================================
-    # RAG
-    # =====================================
-
-    rag_start = time.time()
-
-    context = retrieve_context(
-        user_message
-    )
-
-    rag_latency = round(
-
-        (time.time() - rag_start)
-
-        * 1000
-    )
-
-    print(
-        "\n========== RAG =========="
-    )
-
-    print(context[:300])
-
-    print(
-        "=========================\n"
+        "==============================\n"
     )
 
     # =====================================
@@ -271,133 +249,88 @@ async def chat(
     )
 
     # =====================================
-    # SAVE USER MESSAGE
+    # BATCH SAVE MESSAGES
     # =====================================
 
-    save_message(
-
-        session_id=session_id,
-
-        role="user",
-
-        message=user_message,
-
-        intent=intent,
-
-        flow=flow,
-
-        sentiment=sentiment,
-
-        urgency=urgency,
-
-        risk_level=risk_level,
-    )
-
-    # =====================================
-    # SAVE ASSISTANT MESSAGE
-    # =====================================
-
-    save_message(
-
-        session_id=session_id,
-
-        role="assistant",
-
-        message=ai_reply,
-
-        intent=intent,
-
-        flow=flow,
-
-        sentiment=sentiment,
-
-        urgency=urgency,
-
-        risk_level=risk_level,
-    )
-
-    # =====================================
-    # EVENTS
-    # =====================================
-
-    create_event(
-
-        session_id=session_id,
-
-        event_type="intent_detected",
-
-        event_data={
-
+    save_messages_batch([
+        {
+            "session_id": session_id,
+            "role": "user",
+            "message": user_message,
             "intent": intent,
-
-            "confidence": confidence,
-
             "flow": flow,
-        },
-
-        source="Dialogflow",
-    )
-
-    create_event(
-
-        session_id=session_id,
-
-        event_type="sentiment_detected",
-
-        event_data={
-
             "sentiment": sentiment,
-
             "urgency": urgency,
-
             "risk_level": risk_level,
-
-            "requires_escalation":
-                requires_escalation,
-
-            "customer_state":
-                customer_state,
-
-            "business_impact":
-                business_impact,
         },
-
-        source="Gemini",
-    )
-
-    create_event(
-
-        session_id=session_id,
-
-        event_type="rag_retrieval",
-
-        event_data={
-
-            "query": user_message,
-
-            "latency_ms":
-                rag_latency,
-        },
-
-        source="RAG",
-    )
-
-    create_event(
-
-        session_id=session_id,
-
-        event_type="response_generated",
-
-        event_data={
-
+        {
+            "session_id": session_id,
+            "role": "assistant",
+            "message": ai_reply,
+            "intent": intent,
             "flow": flow,
-
-            "latency_ms":
-                gemini_latency,
+            "sentiment": sentiment,
+            "urgency": urgency,
+            "risk_level": risk_level,
         },
+    ])
 
-        source="Gemini",
-    )
+    # =====================================
+    # FIRE-AND-FORGET EVENTS
+    # =====================================
+
+    async def _log_events():
+        try:
+            await asyncio.to_thread(
+                create_events_batch,
+                [
+                    {
+                        "session_id": session_id,
+                        "event_type": "intent_detected",
+                        "event_data": {
+                            "intent": intent,
+                            "confidence": confidence,
+                            "flow": flow,
+                        },
+                        "source": "Dialogflow",
+                    },
+                    {
+                        "session_id": session_id,
+                        "event_type": "sentiment_detected",
+                        "event_data": {
+                            "sentiment": sentiment,
+                            "urgency": urgency,
+                            "risk_level": risk_level,
+                            "requires_escalation": requires_escalation,
+                            "customer_state": customer_state,
+                            "business_impact": business_impact,
+                        },
+                        "source": "Gemini",
+                    },
+                    {
+                        "session_id": session_id,
+                        "event_type": "rag_retrieval",
+                        "event_data": {
+                            "query": user_message,
+                            "latency_ms": rag_latency,
+                        },
+                        "source": "RAG",
+                    },
+                    {
+                        "session_id": session_id,
+                        "event_type": "response_generated",
+                        "event_data": {
+                            "flow": flow,
+                            "latency_ms": gemini_latency,
+                        },
+                        "source": "Gemini",
+                    },
+                ],
+            )
+        except Exception as e:
+            print(f"EVENT LOGGING ERROR: {e}")
+
+    asyncio.create_task(_log_events())
 
     # =====================================
     # TOTAL LATENCY

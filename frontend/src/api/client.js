@@ -1,5 +1,4 @@
-const API_BASE =
-  "http://localhost:8000";
+// Uses relative /api/ path — nginx reverse proxy routes to backend
 
 export async function sendMessage(
   message
@@ -8,7 +7,7 @@ export async function sendMessage(
   try {
 
     const response = await fetch(
-      `${API_BASE}/chat`,
+      `/api/chat`,
       {
         method: "POST",
 
